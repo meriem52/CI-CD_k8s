@@ -118,7 +118,6 @@ Our **CI pipeline** has two jobs:
 name: gitops-CI
 
 on: 
-  # workflow dispatch requires manual trigger
   workflow_dispatch:
 
 jobs:
@@ -179,13 +178,12 @@ Configure the repository secrets, commit your code to Github and trigger the abo
 
 ## Let's deploy our app
 Before setting ArgoCD let us first deploy our app inside the cluster to make sure everything works.<br>
-Before proceeding do check the [infra](https://github.com/Akshit8/ci-cd-k8s/tree/master/infra) to make sure you have required set of `k8s components`.
 ```bash
 # create a new namespace
 kubectl create ns argo-app
 
 # apply the changes
-kubectl -n argo-app kustomize ci-cd-k8s/infra/ | kubectl -n argo-app apply -f -
+kubectl -n argo-app kustomize infra/ | kubectl -n argo-app apply -f -
 
 # check all components are running
 kubectl get all -n argo-app
@@ -202,11 +200,10 @@ After **port forwarding**, open `localhost:3000/health` to verify whether everyt
 
 ## Setting up ArgoCD
 Check [argocd-getting-started](https://argoproj.github.io/argo-cd/getting_started/) here.<br><br>
-I have copied install.yaml from [here](https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml) and checked into git so that I am able to install same version of Argo in future, if required.
 ```bash
 kubectl create ns argo
 
-kubectl -n argo apply -f ci-cd-k8s/argo/install.yml  
+kubectl -n argo apply -f argo/install.yml  
 
 kubectl port-forward --address 0.0.0.0 service/argocd-server -n argo 3001:443
 ```
@@ -229,21 +226,20 @@ Before making any change to Argo let's first add the public ssh key inside our G
 Inside web ui navigate to `settings`>`repositories` and click on **CONNECT REPO USING SSH** option. Add the following details
 ```
 name: argo-app
-repository: git@github.com:/Akshit8/ci-cd-k8s
+repository: git@github.com:/meriem52/CI-CD_k8s
 ```
-After pasting your private ssh key, click on **connect**. If the connection is successful you'll see something similar to below
+After pasting your private ssh key, click on **connect**.
 
 <img src="assets/repo.png">
 
 ## Creating CD pipeline on ArgoCD
-ArgoCD must be configured to observe our Git repository. This is done simply by creating an application, where we tell Argo how to deploy our application to cluster. On `Applications` page click on `New App` to start creating a new application. 
+ArgoCD must be configured to observe our Git repository. This is done simply by creating an application, where we tell Argo how to deploy our application to cluster. On `Applications` page click on `New App` to start creating a new application.
 
 <img src="assets/app-summary.png">
 
 **Note:** After adding `infra` as the path field, argo would automatically sense that we are using Kustomization(since our infra folder have a `kustomization.yml` file)
 
 ## GitOps Magic
-Note that at the end of the GitHub Actions pipeline, we don’t run any imperative command to deploy our application, we just changed our container version using Kustomize and auto-pushed these changes into our repository.<br><br>
 If you do any code change, the pipeline is triggered and a new Docker image is pushed, the container version is updated and ArgoCD should catch the change.<br><br>
 Let us test our CI/CD pipeline by adding one more endpoint to our Go application, and run the Github action after commiting the code.
 
@@ -258,25 +254,18 @@ func argo(c *gin.Context) {
 }
 ```
 
-Once the action is successfully done, the changes would be reflected on ArgoCD web ui
-
 <img src="assets/argo-sync.png">
 
-Note that ArgoCD is gracefully removing old container while simultaneously adding the new ones. After the new deploy is done open `localhost:3000/argo` (do make sure port-forwarding is applied) to check newly the newly added endpoint
+After the new deploy is done open `localhost:3000/argo` to check the newly added endpoint
 
 <img src="assets/result.png">
 
 ## A final word
-- If you have made till here, congrats! as you now have a production-ready gitOps style cloud-native CI/CD pipeline at your disposal.
-- You may use this as a foundatinal template to build our own superb CI/CD pipelines.
-- The above pipeline is so modular that you easily swap any component from it and use something you like, for e.g argo can be replaced with flux, we can use helm instead of kustomize etc.
-- I personally used ArgoCD because it can connect to multiple repos and it comes with an awesome web ui. Also it'smart to enforce a change to cluster only if it's needed.
-- If you are using a public repo you can skip **Connecting Git repo with Argocd** part
-- If you need to pull image from a private registry you just need to [configure image pull secret for it](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
+- You now have a production-ready GitOps style cloud-native CI/CD pipeline at your disposal.
+- You may use this as a foundational template to build your own CI/CD pipelines.
+- The pipeline is modular — you can swap any component, e.g. replace Argo with Flux, or use Helm instead of Kustomize.
+- If you are using a public repo you can skip the **Connecting Git repo with Argocd** part.
+- If you need to pull image from a private registry, [configure image pull secret](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
 
 ## Author
-**mariem logtari<mariem.logtari.pro@gmail.com>**
-
-
-
-
+**Meriem Logtari — mariem.logtari.pro@gmail.com**
